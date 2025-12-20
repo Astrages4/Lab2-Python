@@ -65,3 +65,80 @@
     history [N]    # вывод последних N команд
     undo           # отмена последней команды из cp/mv/rm`
 
+
+### Алгоритмы работы
+
+#### 1. Обработка путей(относительных и абсолютных)
+    def resolve_path(self, path):
+      if path == "~": return str(Path.home())
+      if path == "..": return str(Path(self.current_dir).parent)
+      if not os.path.isabs(path): path = os.path.join(self.current_dir, path)
+      return os.path.normpath(path)
+      
+#### 2. Логирование операций
+    def log(self, command, success=True, error_msg=""):
+      timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+      with open(self.log_file, 'a', encoding='utf-8') as f:
+        f.write(f"[{timestamp}] {command}\n")
+        if not success:
+          f.write(f"[{timestamp}] ERROR: {error_msg}\n")
+#### 3. Система отмены(Undo)
+    def undo(self):
+      if not self.command_history: return "История пуста"
+      last_cmd = self.command_history[-1]
+      parts = last_cmd.split()
+    
+      if parts[0] == 'cp':
+        dst = self.resolve_path(parts[2])
+        if os.path.exists(dst):
+          shutil.rmtree(dst) if os.path.isdir(dst) else os.remove(dst)
+          self.command_history.pop()
+          return f"Отменено: {last_cmd}"
+
+#### 4. Рекурсивный поиск(grep)
+    def grep(self, pattern, path, recursive=False, ignore_case=False):
+      flags = re.IGNORECASE if ignore_case else 0
+      results = []
+    
+      def search_in_file(file_path):
+        with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+          for i, line in enumerate(f, 1):
+            if re.search(pattern, line, flags):
+              results.append(f"{os.path.basename(file_path)}:{i}: {line.strip()[:100]}")
+    
+      if os.path.isfile(path):
+        search_in_file(path)
+      elif recursive:
+        for root, dirs, files in os.walk(path):
+          for file in files:
+            search_in_file(os.path.join(root, file))
+    
+      return '\n'.join(results) if results else "Совпадений не найдено"
+
+### Безопасность
+
+  - Проверка путей - нормализация и проверка существования
+  - Запрет опасных операций - нельзя удалять `/`, `..`, `.`
+  - Подтверждение действий - запрос подтверждения при рекурсивном удалении
+  - Корзина для удаления - файлы при `rm` с `-r` перемещаются в `.trash/`
+  - Обработка исключений - все операции в `try/except` блоках
+
+### Ограничения(основные условия ТЗ)
+
+  - Не используются внешние оболочки (subprocess)
+  - Все операции выполняются средствами Python API
+  - Поддержка относительных и абсолютных путей
+  - Логирование обязательно для всех команд
+
+### Тесты
+
+#### Тесты покрывают как успешные кейсы выполнения кода, так и неуспешные, а также есть тесты плагинов
+
+#### Результат тестов выводится в консоль в формате:
+    ============================================================
+    РЕЗУЛЬТАТЫ ТЕСТИРОВАНИЯ МИНИ-ОБОЛОЧКИ
+    ============================================================
+    Всего тестов: 30
+    Пройдено успешно: 30
+    ✅ Все тесты пройдены успешно!
+    ============================================================
