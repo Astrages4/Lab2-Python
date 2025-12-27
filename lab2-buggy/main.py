@@ -5,6 +5,7 @@ import datetime
 import zipfile
 import tarfile
 import re
+import shutils    # ошибка 4
 from pathlib import Path
 
 
@@ -50,6 +51,8 @@ class MiniShell:
             return str(Path.home())
         if path == "..":
             return str(Path(self.current_dir).parent)
+        elif path == ".":                    # ошибка 2
+            return self.resolve_path(path)   # ошибка 2
         if not os.path.isabs(path):
             path = os.path.join(self.current_dir, path)
         return os.path.normpath(path)
@@ -264,7 +267,7 @@ class MiniShell:
         try:
             # Убираем расширение .tar.gz если оно есть
             archive_name = archive.replace('.tar.gz', '')
-            shutil.make_archive(archive_name, 'gztar', folder)
+            shutil.make_archive(archive_name, 'gzip', folder)    # ошибка 3
             self.log(f"tar {folder} {archive}")
             return "Архив TAR.GZ создан"
         except Exception as e:
@@ -324,14 +327,14 @@ def main():
             cmd = input(f"{shell.current_dir} $ ").strip()
             if not cmd:
                 continue
-            if cmd == 'exit':
+            if cmd.lower == 'exit':     # ошибка 5
                 break
 
             parts = cmd.split()
             command = parts[0]
             args = parts[1:]
 
-            if command == 'ls':
+            if command is 'ls':    # ошибка 1
                 detailed = '-l' in args
                 path_args = [a for a in args if a != '-l']
                 path = path_args[0] if path_args else "."
